@@ -1,7 +1,8 @@
 ## Connor Bruce
 
-[connorb1@umbc.edu](mailto:connorb1@umbc.edu) | 443-370-6123 | Pasadena, MD  !["Headshot"](headshot.png) \
-[LinkedIn](https://www.linkedin.com/in/connormbruce/)
+[connorb1@umbc.edu](mailto:connorb1@umbc.edu) | 443-370-6123 | Pasadena, MD \
+[LinkedIn](https://www.linkedin.com/in/connormbruce/) \
+!["Headshot"](headshot.png)
 
 ## Professional Summary
 
