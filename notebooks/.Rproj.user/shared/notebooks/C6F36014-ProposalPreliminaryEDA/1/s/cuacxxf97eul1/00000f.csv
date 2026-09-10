@@ -1,0 +1,10 @@
+"0","All_Condition_Data %>%
+  mutate(Year = as.factor(YEAR_RECORD)) %>%
+  group_by(Year) %>%
+  summarize(Mean_IRI = mean(IRI,na.rm = T)) %>%
+  ggplot() +
+  geom_histogram(aes(x = Year,y = Mean_IRI),stat = ""identity"") +
+  theme_bw() +
+  ggtitle(""Mean DC Traffic By Year"")
+"
+"2","Warning: [38;5;232mIgnoring unknown parameters: `binwidth`, `bins`, and `pad`[39m"

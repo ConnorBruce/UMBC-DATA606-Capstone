@@ -1,0 +1,246 @@
+---
+title: "Project_Proposal_EDA"
+output: html_document
+date: "2026-09-08"
+---
+
+## Loading Packages
+```{r}
+library(tidyverse)
+library(sf)
+
+```
+
+## Reading in Data
+
+#### Condition Data
+```{r}
+Condition_Filepath = "../data/Condition/ModeledRegionHPMSFiles.gdb/"
+
+All_Condition_Data = data.frame()
+
+Condition_Layers = st_layers(Condition_Filepath) %>%
+  as.data.frame() %>%
+  pull(name)
+
+for(layername in Condition_Layers){
+  cond_name = paste0("Condition_Data_",substr(layername,13,16))
+  assign(cond_name,st_read(dsn = Condition_Filepath, layer = layername) %>%
+           st_drop_geometry())
+  
+  temp = get(cond_name)
+  colnames(temp) = toupper(colnames(temp))
+  
+  All_Condition_Data = All_Condition_Data %>%
+    plyr::rbind.fill(temp %>%
+            select(YEAR_RECORD, ROUTE_ID, BEGIN_POINT, END_POINT, IRI, contains("SYSTEM"), 
+                   NHS, contains("AADT"), SPEED_LIMIT, contains("SURFACE")))
+  
+  rm(temp)
+  
+}
+
+```
+## Processing
+
+#### Reformatting Traffic to 2024 Sectioning
+Begin and End points are different between years. For consistency, all other years are being converted to match the 2024 sectioning. Traffic load (AADT) and IRI is averaged weighted based on the proportion of the given year's section that falls within the 2024 sectioning.
+
+There are six scenarios to consider:
+1) The sections have perfect overlap (i.e. Begin = Begin, End = End)
+2) Begin > Begin 2024 and End > End_2024 (Contains end of 2024 section)
+3) Begin < Begin_2024 and End < End_2024 (Contains start of 2024 section)
+4) A section contains an entire 2024 section
+5) A section is contained entirely in the 2024 section
+6) The sections do not have overlap
+
+Calculate length of section in base section for each case then proportion of base section
+
+Take weighted average of AADT and IRI based on section that fall within base section
+For categorical, take the first because those will typically not change over years
+#### Reformatting Condition Data
+```{r}
+## Creating Base Table
+Condition_Base_Sectioning = All_Condition_Data %>%
+  filter(YEAR_RECORD == 2024) %>%
+  select(ROUTE_ID, BEGIN_POINT, END_POINT)
+
+## Resection Data to Match 2024
+All_Condition_Resection = All_Condition_Data %>%
+  rename(BEGIN_POINT_NEW = BEGIN_POINT,
+         END_POINT_NEW = END_POINT) %>%
+  left_join(Condition_Base_Sectioning) %>%
+  mutate(ind = case_when(BEGIN_POINT == BEGIN_POINT_NEW & END_POINT==END_POINT_NEW ~ 1,
+                         BEGIN_POINT_NEW>=BEGIN_POINT & END_POINT_NEW>=END_POINT & BEGIN_POINT_NEW < END_POINT ~ 2,
+                         BEGIN_POINT_NEW<=BEGIN_POINT & END_POINT_NEW<=END_POINT & END_POINT_NEW > BEGIN_POINT ~ 3,
+                         BEGIN_POINT_NEW<=BEGIN_POINT & END_POINT_NEW>=END_POINT ~ 4,
+                         BEGIN_POINT_NEW>=BEGIN_POINT & END_POINT_NEW<END_POINT &
+                          END_POINT_NEW>BEGIN_POINT & BEGIN_POINT_NEW < END_POINT ~ 5,
+                         TRUE ~ 6
+                         )) %>%
+  filter(ind != 6) %>%
+  mutate(Len_in_Sec = case_when(
+    ind == 1 ~ END_POINT_NEW - BEGIN_POINT_NEW,
+    ind == 2 ~ END_POINT - BEGIN_POINT_NEW,
+    ind == 3 ~ END_POINT_NEW - BEGIN_POINT,
+    ind == 4 ~ END_POINT-BEGIN_POINT,
+    ind == 5 ~ END_POINT_NEW - BEGIN_POINT_NEW
+  )) %>%
+  mutate(Section_Length = END_POINT-BEGIN_POINT) %>%
+  mutate(Perc_in_Sec = Len_in_Sec / Section_Length) %>%
+  mutate(Updated_IRI = IRI*Perc_in_Sec) %>%
+  group_by(ROUTE_ID, BEGIN_POINT,END_POINT,YEAR_RECORD) %>%
+  summarize(AADT = round(sum(AADT,na.rm = T),0),
+            IRI = sum(IRI,na.rm = T),
+            F_SYSTEM = F_SYSTEM[1],
+            NHS = NHS[1],
+            SURFACE_TYPE = SURFACE_TYPE[1])
+```
+
+#### Adding Missing Data
+Assumption that pavements maintain Surface Type, NHS status, and Facility Type throughout lifetime
+```{r}
+## Processing Missing Data
+All_Condition_Data_Fill = All_Condition_Resection %>%
+  group_by(ROUTE_ID) %>%
+  fill(F_SYSTEM, .direction = "updown") %>%
+  fill(NHS, .direction = "updown") %>%
+  fill(SURFACE_TYPE, .direction = "updown")
+
+
+
+```
+
+#### Getting IRI and AADT Deltas
+```{r}
+All_Condition_Data_Deltas = All_Condition_Data_Fill %>%
+  group_by(ROUTE_ID, BEGIN_POINT, END_POINT) %>%
+  arrange(ROUTE_ID, BEGIN_POINT, END_POINT) %>%
+  mutate(IRI_Delta = lag(IRI),
+         AADT_Delta = lag(AADT))
+
+```
+
+## Preliminary EDA on Traffic Data
+#### Checking for IRI NAs
+There is a high proportion of missing data in 2020-2024
+Other years are either negligible missing data or around 30-35%
+Enough data to work with
+```{r}
+All_Condition_Data_Deltas %>%
+  group_by(YEAR_RECORD) %>%
+  summarize(Missing_Vals = sum(is.na(IRI)),
+            Number_Vals = sum(!is.na(IRI))) %>%
+  mutate(Prop_Missing = round(Missing_Vals/(Missing_Vals + Number_Vals),3))
+```
+
+#### Checking for IRI Delta NAs
+There is a high proportion of missing data in 2020-2024
+Other years are either negligible missing data or around 30-35%
+Enough data to work with
+```{r}
+All_Condition_Data_Deltas %>%
+  group_by(YEAR_RECORD) %>%
+  summarize(Missing_Vals = sum(is.na(IRI_Delta)),
+            Number_Vals = sum(!is.na(IRI_Delta))) %>%
+  mutate(Prop_Missing = round(Missing_Vals/(Missing_Vals + Number_Vals),3))
+```
+
+#### Average Traffic By Year
+Fairly consistent after from 2019-2024
+Spikes in 2017 and 2018
+Lower in 2016
+```{r}
+All_Condition_Data %>%
+  mutate(Year = as.factor(YEAR_RECORD)) %>%
+  group_by(Year) %>%
+  summarize(Mean_Traffic = mean(AADT,na.rm = T)) %>%
+  ggplot() +
+  geom_histogram(aes(x = Year,y = Mean_Traffic),stat = "identity") +
+  theme_bw() +
+  ggtitle("Mean DC Traffic By Year")
+```
+
+#### Average IRI
+Fairly consistent other than 2016-2018 where it was much lower than the other years
+```{r}
+All_Condition_Data_Deltas %>%
+  mutate(Year = as.factor(YEAR_RECORD)) %>%
+  group_by(Year) %>%
+  summarize(Mean_IRI = mean(IRI,na.rm = T)) %>%
+  ggplot() +
+  geom_histogram(aes(x = Year,y = Mean_IRI),stat = "identity") +
+  theme_bw() +
+  ggtitle("Mean DC IRI By Year")
+
+```
+
+###### Outliers Removed
+IRI does not typically exceed 500in/mi
+Does not change pattern much
+```{r}
+All_Condition_Data_Deltas %>%
+  filter(IRI <= 500) %>%
+  mutate(Year = as.factor(YEAR_RECORD)) %>%
+  group_by(Year) %>%
+  summarize(Mean_IRI = mean(IRI,na.rm = T)) %>%
+  ggplot() +
+  geom_histogram(aes(x = Year,y = Mean_IRI),stat = "identity") +
+  theme_bw() +
+  ggtitle("Mean DC IRI By Year")
+
+```
+
+#### Average Delta IRI
+Very high in early years
+Typically declines over years
+```{r}
+All_Condition_Data_Deltas %>%
+  filter(YEAR_RECORD != 2015) %>%
+  arrange(YEAR_RECORD) %>%
+  mutate(Year = factor(YEAR_RECORD,
+                          levels = c(2016,2017,2018,2019,2020,2021,2022,2023,2024))) %>%
+  group_by(Year) %>%
+  summarize(Mean_IRI_Delta = mean(IRI_Delta,na.rm = T)) %>%
+  ggplot() +
+  geom_histogram(aes(x = Year,y = Mean_IRI_Delta),stat = "identity") +
+  theme_bw() +
+  ggtitle("Mean DC IRI Delta By Year")
+
+```
+
+###### Outliers Removed
+More than 100in/mi is considered an outlier
+Seems to have fixed 2016, but 2017 is still high
+```{r}
+All_Condition_Data_Deltas %>%
+  filter(IRI_Delta <= 100) %>%
+  filter(YEAR_RECORD != 2015) %>%
+  arrange(YEAR_RECORD) %>%
+  mutate(Year = factor(YEAR_RECORD,
+                          levels = c(2016,2017,2018,2019,2020,2021,2022,2023,2024))) %>%
+  group_by(Year) %>%
+  summarize(Mean_IRI_Delta = mean(IRI_Delta,na.rm = T)) %>%
+  ggplot() +
+  geom_histogram(aes(x = Year,y = Mean_IRI_Delta),stat = "identity") +
+  theme_bw() +
+  ggtitle("Mean DC IRI Delta By Year")
+
+```
+###### 2017 Investigation
+```{r}
+All_Condition_Data_Deltas %>%
+  filter(IRI_Delta <= 100) %>%
+  filter(YEAR_RECORD %in% c(2017)) %>%
+  ungroup() %>%
+  ggplot() +
+  geom_histogram(aes(x = IRI_Delta),
+                 stat = "count",binwidth = 5,position = "dodge") +
+  theme_bw() +
+  ggtitle("DC IRI Delta Distribution in 2017")
+
+```
+
+
+
+

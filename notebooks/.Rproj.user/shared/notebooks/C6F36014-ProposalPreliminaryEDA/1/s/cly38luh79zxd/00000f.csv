@@ -1,0 +1,5 @@
+"0","All_Condition_Data_Deltas %>%"
+"0","  group_by(YEAR_RECORD) %>%"
+"0","  summarize(Missing_Vals = sum(is.na(IRI_Delta)),"
+"0","            Number_Vals = sum(!is.na(IRI_Delta))) %>%"
+"0","  mutate(Prop_Missing = round(Missing_Vals/(Missing_Vals + Number_Vals),3))"
