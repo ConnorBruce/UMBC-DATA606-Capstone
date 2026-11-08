@@ -1,0 +1,281 @@
+---
+title: "MachineLearningModels"
+output: html_document
+date: "2026-09-30"
+---
+
+## Reading in Packages
+```{r}
+library(tidyverse)
+library(caret)
+library(randomForest)
+library(leaflet)
+library(sf)
+library(reshape2)
+```
+
+## Reading in Analysis Dataset
+```{r}
+load("All_Condition_Data_Deltas.Rdata")
+All_Condition_Data_Deltas = All_Condition_Deltas_Filtered
+```
+
+## Reading in 2024 Data for Coordinates
+```{r}
+Condition_Filepath = "../data/Condition/ModeledRegionHPMSFiles.gdb/"
+
+Condition_2024_w_Geo = st_read(dsn = Condition_Filepath,
+                               layer = "HPMS_ModReg_2024")
+```
+
+## Creating Coordinate Lookup Table
+```{r}
+Geometry_2024 = Condition_2024_w_Geo %>%
+  select(route_id,begin_point,end_point,county_code,Shape) %>%
+  rename(ROUTE_ID = route_id,
+         BEGIN_POINT = begin_point,
+         END_POINT = end_point,
+         geometry = Shape)
+```
+
+## Filling In or Removing Missing Data
+```{r}
+Analysis_Dataset = All_Condition_Data_Deltas %>%
+  ungroup() %>%
+  group_by(ROUTE_ID) %>%
+  fill(SURFACE_TYPE,.direction="downup") %>%
+  filter(!is.na(IRI_Delta)) %>%
+  left_join(Geometry_2024) %>%
+  filter(county_code == 1) %>%
+  select(-county_code) %>%
+  ungroup() %>%
+  select(-YEAR_RECORD,-ROUTE_ID,-BEGIN_POINT,-END_POINT) %>%
+  na.omit() %>%
+  st_as_sf() %>%
+  mutate(NHS = if_else(NHS == 0,0,1)) %>%
+  mutate(F_SYSTEM = if_else(F_SYSTEM == 1,1,0)) %>%
+  mutate(SURFACE_TYPE = case_when(SURFACE_TYPE == 1~1,
+                                  SURFACE_TYPE %in% c(2,6,7,8)~2,
+                                  SURFACE_TYPE %in% c(3,4,5,9,10)~3,
+                                  TRUE ~ 4))
+```
+
+## Mapping Sections
+```{r}
+All_Condition_Data_Deltas %>%
+  #filter(NHS == 1 & F_SYSTEM == 1) %>%
+  ungroup() %>%
+  group_by(ROUTE_ID) %>%
+  fill(SURFACE_TYPE,.direction="downup") %>%
+  filter(!is.na(IRI_Delta)) %>%
+  left_join(Geometry_2024) %>%
+  filter(county_code == 1) %>%
+  ungroup() %>%
+  na.omit() %>%
+  select(ROUTE_ID, BEGIN_POINT, END_POINT,geometry) %>%
+  distinct() %>%
+  st_as_sf() %>%
+  st_zm() %>%
+  leaflet() %>%
+  addPolylines(weight = 2) %>%
+  addProviderTiles(provider = "Esri.WorldTopoMap")
+
+```
+
+## Correlation Analysis
+```{r}
+Analysis_Dataset %>%
+  st_drop_geometry() %>%
+  select(IRI, AADT, F_SYSTEM, NHS, SURFACE_TYPE, AADT_Delta, IRI_Delta) %>%
+  cor(use = "complete.obs",method = "pearson") %>%
+  melt() %>%
+  ggplot(aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white",
+                      midpoint = 0, limit = c(-1,1), space = "Lab",
+                      name = "Correlation") +
+  ggtitle("Analysis Dataset Correlation Matrix") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+
+```
+
+## Records by Road Designation
+```{r}
+Analysis_Dataset %>%
+  st_drop_geometry() %>%
+  group_by(NHS, F_SYSTEM) %>%
+  summarize(Count = n()) %>%
+  pivot_wider(names_from = NHS,
+              values_from = Count)
+
+```
+
+## Records by Surface Type
+```{r}
+Analysis_Dataset %>%
+  st_drop_geometry() %>%
+  mutate(SURFACE_TYPE = case_when(
+    SURFACE_TYPE == 1 ~ "Unpaved",
+    SURFACE_TYPE == 2 ~ "Asphalt/Composite",
+    SURFACE_TYPE == 3 ~ "Concrete",
+    TRUE ~ "Other"
+  )) %>%
+  group_by(SURFACE_TYPE) %>%
+  summarize(Count = n()) %>%
+  ungroup() %>%
+  ggplot() +
+  geom_histogram(aes(x = SURFACE_TYPE, y = Count), stat = "identity") +
+  ylab("Record Count") +
+  xlab("Surface Type") +
+  ggtitle("Records by Surface Type") +
+  theme_bw()
+```
+
+
+
+## Mapping All Sections
+```{r}
+Map_Data = All_Condition_Data_Deltas %>%
+  mutate(NHS = if_else(NHS == 0,0,1)) %>%
+  mutate(F_SYSTEM = if_else(F_SYSTEM == 1,1,0)) %>%
+  mutate(SURFACE_TYPE = case_when(SURFACE_TYPE == 1~1,
+                                  SURFACE_TYPE %in% c(2,6,7,8)~2,
+                                  SURFACE_TYPE %in% c(3,4,5,9,10)~3,
+                                  TRUE ~ 4)) %>%
+  #filter(NHS == 1 & F_SYSTEM == 1) %>%
+  ungroup() %>%
+  group_by(ROUTE_ID) %>%
+  fill(SURFACE_TYPE,.direction="downup") %>%
+  filter(!is.na(IRI_Delta)) %>%
+  left_join(Geometry_2024) %>%
+  filter(county_code == 1) %>%
+  ungroup() %>%
+  na.omit() %>%
+  select(ROUTE_ID, BEGIN_POINT, END_POINT,F_SYSTEM,NHS,geometry) %>%
+  distinct() %>%
+  st_as_sf() %>%
+  st_zm()
+  
+
+Map_Data %>%
+  leaflet() %>%
+  addPolygons(
+    color = "blue",    
+    weight = 1) %>%
+  addProviderTiles(provider = "Esri.WorldGrayCanvas")
+```
+
+## Map by Interstate
+```{r}
+pal_categorical <- colorFactor(
+  palette = c("red","blue"),             
+  domain = Map_Data$F_SYSTEM      
+)
+
+Map_Data %>%
+  leaflet() %>%
+  addPolygons(fillColor = ~pal_categorical(F_SYSTEM),
+    fillOpacity = 0.7,
+    color = ~pal_categorical(F_SYSTEM),    
+    weight = 1) %>%
+  addProviderTiles(provider = "Esri.WorldGrayCanvas") %>%
+  addLegend(
+    pal = pal_categorical, 
+    values = ~F_SYSTEM, 
+    title = "Interstate", 
+    position = "bottomright"
+  )
+
+```
+
+## Map by NHS
+```{r}
+pal_categorical <- colorFactor(
+  palette = c("red","blue"),             
+  domain = Map_Data$NHS      
+)
+
+Map_Data %>%
+  leaflet() %>%
+  addPolygons(fillColor = ~pal_categorical(NHS),
+    fillOpacity = 0.7,
+    color = ~pal_categorical(NHS),    
+    weight = 1) %>%
+  addProviderTiles(provider = "Esri.WorldGrayCanvas") %>%
+  addLegend(
+    pal = pal_categorical, 
+    values = ~F_SYSTEM, 
+    title = "NHS", 
+    position = "bottomright"
+  )
+
+```
+
+## Map by 2024 IRI
+```{r}
+Map_Data_IRI = All_Condition_Data_Deltas %>%
+  filter(YEAR_RECORD == 2024) %>%
+  mutate(NHS = if_else(NHS == 0,0,1)) %>%
+  mutate(F_SYSTEM = if_else(F_SYSTEM == 1,1,0)) %>%
+  mutate(SURFACE_TYPE = case_when(SURFACE_TYPE == 1~1,
+                                  SURFACE_TYPE %in% c(2,6,7,8)~2,
+                                  SURFACE_TYPE %in% c(3,4,5,9,10)~3,
+                                  TRUE ~ 4)) %>%
+  #filter(NHS == 1 & F_SYSTEM == 1) %>%
+  ungroup() %>%
+  group_by(ROUTE_ID) %>%
+  fill(SURFACE_TYPE,.direction="downup") %>%
+  filter(!is.na(IRI_Delta)) %>%
+  left_join(Geometry_2024) %>%
+  filter(county_code == 1) %>%
+  ungroup() %>%
+  na.omit() %>%
+  select(ROUTE_ID, BEGIN_POINT, END_POINT, IRI,geometry) %>%
+  distinct() %>%
+  st_as_sf() %>%
+  st_zm() %>%
+  mutate(IRI_Group = case_when(IRI <=90 ~ "Good",
+                               IRI<= 170 ~ "Fair",
+                               IRI > 170 ~ "Poor")) %>%
+  arrange(IRI_Group) %>%
+  mutate(IRI = if_else(IRI > 500,500,IRI))
+
+    pal_numeric_IRI <- colorNumeric(
+      palette = c("green", "yellow", "red"),             
+      domain =Map_Data_IRI$IRI    
+    )
+
+Map_Data_IRI %>%
+  mutate(IRI = round(IRI,1)) %>%
+  mutate(info = paste0("<b>Route:</b> ",ROUTE_ID, 
+                       "<br/><b>Mileposts:</b> ",BEGIN_POINT,"-",END_POINT,
+                       "<br/><b>IRI:</b> ",IRI)) %>%
+  leaflet() %>%
+  addPolylines(fillColor = ~pal_numeric_IRI(IRI),
+    fillOpacity = 0.7,
+    color = ~pal_numeric_IRI(IRI),    
+    weight = 2,
+    popup = ~info) %>%
+  addProviderTiles(provider = "Esri.WorldGrayCanvas") %>%
+  addLegend(
+    pal = pal_numeric_IRI,
+    values = ~IRI,
+    title = "Pavement IRI Condition",
+    position = "bottomright"
+  )
+
+
+```
+
+## Writing New Analysis Dataset
+```{r}
+save(Analysis_Dataset,file = "Analysis_Dataset.Rdata")
+
+```
+
+
+
+
+

@@ -1,0 +1,7 @@
+"0","All_Condition_Data_Deltas = All_Condition_Data_Fill %>%"
+"0","  group_by(ROUTE_ID, BEGIN_POINT, END_POINT) %>%"
+"0","  arrange(ROUTE_ID, BEGIN_POINT, END_POINT,YEAR_RECORD) %>%"
+"0","  mutate(IRI_Delta = (IRI-lag(IRI))/(YEAR_RECORD-lag(YEAR_RECORD)),"
+"0","         AADT_Delta = (AADT-lag(AADT))/(YEAR_RECORD-lag(YEAR_RECORD))) %>%"
+"0","  filter(!is.na(IRI_Delta))"
+"0",""

@@ -1,0 +1,247 @@
+---
+title: "MachineLearningModels"
+output: html_document
+date: "2026-10-28"
+---
+
+## Reading in Packages
+```{r}
+library(tidyverse)
+library(caret)
+library(randomForest)
+library(leaflet)
+library(sf)
+library(reshape2)
+library(xgboost)
+```
+
+## Load Analysis Dataset
+```{r}
+load("Analysis_Dataset.Rdata")
+load("All_Condition_Data_Deltas.Rdata")
+
+Analysis_Dataset = Analysis_Dataset %>%
+  mutate(NHS = if_else(NHS == 0,0,1)) %>%
+  mutate(F_SYSTEM = if_else(F_SYSTEM == 1,1,0))
+
+All_Condition_Deltas_Filtered = All_Condition_Deltas_Filtered %>%
+  mutate(NHS = if_else(NHS == 0,0,1)) %>%
+  mutate(F_SYSTEM = if_else(F_SYSTEM == 1,1,0))
+
+save(Analysis_Dataset, file = "Analysis_Dataset.Rdata")
+save(All_Condition_Deltas_Filtered,file = "All_Condition_Data_Deltas.Rdata")
+
+```
+
+## Regression Model
+
+#### Building Model
+```{r}
+Analysis_Data_noGeo = Analysis_Dataset %>%
+  st_drop_geometry()
+
+train_indices_reg = createDataPartition(Analysis_Data_noGeo$IRI_Delta,
+                                    p = 0.8,
+                                    list = FALSE)
+
+train_set_reg = Analysis_Data_noGeo[train_indices_reg,]
+test_set_reg = Analysis_Data_noGeo[-train_indices_reg,]
+
+reg_model = lm(IRI_Delta ~ ., data = Analysis_Data_noGeo)
+
+```
+
+#### Testing Accuracy
+```{r}
+reg_preds = predict(reg_model, test_set_reg)
+reg_actuals = test_set_reg$IRI_Delta
+
+reg_stats = postResample(pred = reg_preds, obs = reg_actuals) %>%
+  as.data.frame() %>%
+  rownames_to_column("Metric") %>%
+  pivot_wider(names_from = "Metric", values_from = ".") %>%
+  mutate(Model = "Linear Regression") %>%
+  select(Model, RMSE, Rsquared, MAE)
+reg_stats
+```
+
+## Random Forest
+
+#### Building Model
+```{r}
+Analysis_Data_noGeo = Analysis_Dataset %>%
+  st_drop_geometry()
+
+train_indices_rf = createDataPartition(Analysis_Data_noGeo$IRI_Delta,
+                                    p = 0.8,
+                                    list = FALSE)
+
+train_set_rf = Analysis_Data_noGeo[train_indices_rf,]
+test_set_rf = Analysis_Data_noGeo[-train_indices_rf,] 
+
+rf_model = randomForest(IRI_Delta ~ .,data = train_set_rf, ntree = 50, importance = T)
+
+```
+
+#### Testing Accuracy
+```{r}
+rf_preds = predict(rf_model, test_set_rf)
+rf_actuals = test_set_rf$IRI_Delta
+
+rf_stats = postResample(pred = rf_preds, obs = rf_actuals) %>%
+  as.data.frame() %>%
+  rownames_to_column("Metric") %>%
+  pivot_wider(names_from = "Metric", values_from = ".") %>%
+  mutate(Model = "Random Forest") %>%
+  select(Model, RMSE, Rsquared, MAE)
+rf_stats
+```
+
+## XG Boost
+
+#### Building Model
+```{r}
+Analysis_Dataset_xgb = Analysis_Data_noGeo %>%
+  mutate(SURFACE_TYPE = as.factor(SURFACE_TYPE))
+
+train_indices_xgb = createDataPartition(Analysis_Dataset_xgb$IRI_Delta,
+                                    p = 0.8,
+                                    list = FALSE)
+
+train_set_xgb = Analysis_Dataset_xgb[train_indices_xgb,]
+test_set_xgb = Analysis_Dataset_xgb[-train_indices_xgb,] 
+
+xgb_matrix = data.matrix(train_set_xgb %>% select(-IRI_Delta))
+xgb_label = train_set_xgb$IRI_Delta
+
+# 2. Set parameters for regression
+xgb_params = list(
+  objective = "reg:squarederror",
+  eval_metric = "rmse",
+  learning_rate = 0.1,
+  max_depth = 6
+)
+
+# 3. Train the model
+xgb_model <- xgboost(
+  data = xgb_matrix,
+  label = xgb_label,
+  params = xgb_params,
+  nrounds = 100,
+  verbose = 1
+)
+
+```
+
+#### Testing Accuracy
+```{r}
+xgb_preds = predict(xgb_model, test_set_xgb %>%select(-IRI_Delta))
+xgb_actuals = test_set_xgb$IRI_Delta
+
+xgb_stats = postResample(pred = xgb_preds, obs = xgb_actuals) %>%
+  as.data.frame() %>%
+  rownames_to_column("Metric") %>%
+  pivot_wider(names_from = "Metric", values_from = ".") %>%
+  mutate(Model = "XG Boost") %>%
+  select(Model, RMSE, Rsquared, MAE)
+xgb_stats
+```
+
+## Comparing Accuracy
+```{r}
+Model_Accuracy = reg_stats %>%
+  rbind(rf_stats) %>%
+  rbind(xgb_stats)
+
+Model_Accuracy
+
+```
+
+## Creating Function for Applying Model
+
+#### Testing Code
+```{r}
+
+horiz = 10
+
+
+base = All_Condition_Deltas_Filtered %>%
+  ungroup() %>%
+  filter(YEAR_RECORD == max(YEAR_RECORD))
+
+
+for(i in 1:horiz-1){
+  
+  base_0 = base %>%
+    filter(YEAR_RECORD == max(YEAR_RECORD))
+  pred = predict(xgb_model,base_0)
+  base_0$IRI_inc = pred
+  
+  
+  temp = base_0 %>%
+    mutate(Upd_IRI = IRI + IRI_inc) %>%
+    mutate(IRI = Upd_IRI) %>%
+    mutate(YEAR_RECORD = YEAR_RECORD+1) %>%
+    select(-Upd_IRI,-IRI_inc) %>%
+    mutate(AADT_Delta = 0)
+  
+  base = base %>%
+    rbind(temp) %>%
+    arrange(ROUTE_ID, BEGIN_POINT, END_POINT, YEAR_RECORD)
+}
+
+
+
+```
+
+
+#### Building Function
+```{r}
+predictIRI_RF = function(horiz = 10, NHS = c(0,1), IH = c(0,1)){
+  
+    base = All_Condition_Deltas_Filtered %>%
+      filter(NHS %in% NHS) %>%
+      filter(F_SYSTEM %in% IH) %>%
+      ungroup() %>%
+      filter(YEAR_RECORD == max(YEAR_RECORD))
+    
+      for(i in 1:horiz-1){
+          
+            base_0 = base %>%
+              filter(YEAR_RECORD == max(YEAR_RECORD))
+            pred = predict(rf_model,base_0)
+            base_0$IRI_inc = pred
+            
+            
+            temp = base_0 %>%
+              mutate(Upd_IRI = IRI + IRI_inc) %>%
+              mutate(IRI = Upd_IRI) %>%
+              mutate(YEAR_RECORD = YEAR_RECORD+1) %>%
+              select(-Upd_IRI,-IRI_inc) %>%
+              mutate(AADT_Delta = 0)
+              
+            base = base %>%
+              rbind(temp) %>%
+              arrange(ROUTE_ID, BEGIN_POINT, END_POINT, YEAR_RECORD)
+      }
+    base
+  
+}
+
+```
+
+#### Testing Function
+```{r}
+predictIRI_RF()
+
+
+```
+
+## Saving Updated Datasets
+```{r}
+save(Analysis_Dataset, file = "Analysis_Dataset.Rdata")
+save(All_Condition_Deltas_Filtered,file = "All_Condition_Data_Deltas.Rdata")
+
+saveRDS(rf_model,file = "rf_model.rds")
+
+```

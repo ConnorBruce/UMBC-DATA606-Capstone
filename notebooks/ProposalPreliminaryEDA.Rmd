@@ -33,12 +33,19 @@ for(layername in Condition_Layers){
   
   All_Condition_Data = All_Condition_Data %>%
     plyr::rbind.fill(temp %>%
+                       filter(OWNERSHIP == 1) %>%
             select(YEAR_RECORD, ROUTE_ID, BEGIN_POINT, END_POINT, IRI, contains("SYSTEM"), 
-                   NHS, contains("AADT"), SPEED_LIMIT, contains("SURFACE")))
+                   NHS, contains("AADT"), SPEED_LIMIT, contains("SURFACE"),OWNERSHIP, contains("STRUCTURE"),COUNTY_CODE))
   
   rm(temp)
   
 }
+
+All_Condition_Data_Filt = All_Condition_Data %>%
+  filter(is.na(STRUCTURE_TYPE) | STRUCTURE_TYPE != 1) %>%
+  filter(COUNTY_CODE == 1) %>%
+  filter(!is.na(IRI)) %>%
+  filter(IRI <= 750)
 
 ```
 ## Processing
@@ -61,12 +68,12 @@ For categorical, take the first because those will typically not change over yea
 #### Reformatting Condition Data
 ```{r}
 ## Creating Base Table
-Condition_Base_Sectioning = All_Condition_Data %>%
+Condition_Base_Sectioning = All_Condition_Data_Filt %>%
   filter(YEAR_RECORD == 2024) %>%
   select(ROUTE_ID, BEGIN_POINT, END_POINT)
 
 ## Resection Data to Match 2024
-All_Condition_Resection = All_Condition_Data %>%
+All_Condition_Resection = All_Condition_Data_Filt %>%
   rename(BEGIN_POINT_NEW = BEGIN_POINT,
          END_POINT_NEW = END_POINT) %>%
   left_join(Condition_Base_Sectioning) %>%
@@ -115,9 +122,10 @@ All_Condition_Data_Fill = All_Condition_Resection %>%
 ```{r}
 All_Condition_Data_Deltas = All_Condition_Data_Fill %>%
   group_by(ROUTE_ID, BEGIN_POINT, END_POINT) %>%
-  arrange(ROUTE_ID, BEGIN_POINT, END_POINT) %>%
-  mutate(IRI_Delta = lag(IRI),
-         AADT_Delta = lag(AADT))
+  arrange(ROUTE_ID, BEGIN_POINT, END_POINT,YEAR_RECORD) %>%
+  mutate(IRI_Delta = (IRI-lag(IRI))/(YEAR_RECORD-lag(YEAR_RECORD)),
+         AADT_Delta = (AADT-lag(AADT))/(YEAR_RECORD-lag(YEAR_RECORD))) %>%
+  filter(!is.na(IRI_Delta))
 
 ```
 
@@ -196,6 +204,7 @@ Very high in early years
 Typically declines over years
 ```{r}
 All_Condition_Data_Deltas %>%
+  filter(IRI_Delta <= 150, IRI_Delta >=-20) %>%
   filter(YEAR_RECORD != 2015) %>%
   arrange(YEAR_RECORD) %>%
   mutate(Year = factor(YEAR_RECORD,
@@ -238,6 +247,23 @@ All_Condition_Data_Deltas %>%
                  stat = "count",binwidth = 5,position = "dodge") +
   theme_bw() +
   ggtitle("DC IRI Delta Distribution in 2017")
+
+```
+
+## Filtering Delta Dataset for Reasonable Values
+```{r}
+All_Condition_Deltas_Filtered = All_Condition_Data_Deltas %>%
+  filter(IRI_Delta <= 150) %>%
+  filter(IRI_Delta >= -20) %>%
+  filter(IRI <= 750) %>%
+  filter(IRI >= 0)
+
+
+```
+
+## Saving Analysis Dataset
+```{r}
+save(All_Condition_Deltas_Filtered,file="All_Condition_Data_Deltas.Rdata")
 
 ```
 

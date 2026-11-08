@@ -1,0 +1,7 @@
+"0","All_Condition_Deltas_Filtered = All_Condition_Data_Deltas %>%"
+"0","  filter(IRI_Delta <= 150) %>%"
+"0","  filter(IRI_Delta >= -20) %>%"
+"0","  filter(IRI <= 750) %>%"
+"0","  filter(IRI >= 0)"
+"0",""
+"0",""

@@ -1,0 +1,7 @@
+"0","Analysis_Dataset %>%"
+"0","  st_drop_geometry() %>%"
+"0","  group_by(NHS, F_SYSTEM) %>%"
+"0","  summarize(Count = n()) %>%"
+"0","  pivot_wider(names_from = NHS,"
+"0","              values_from = Count)"
+"2","`summarise()` has grouped output by 'NHS'. You can override using the `.groups` argument."

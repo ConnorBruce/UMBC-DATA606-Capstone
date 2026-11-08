@@ -1,0 +1,6 @@
+"0","Geometry_2024 = Condition_2024_w_Geo %>%"
+"0","  select(route_id,begin_point,end_point,county_code,Shape) %>%"
+"0","  rename(ROUTE_ID = route_id,"
+"0","         BEGIN_POINT = begin_point,"
+"0","         END_POINT = end_point,"
+"0","         geometry = Shape)"

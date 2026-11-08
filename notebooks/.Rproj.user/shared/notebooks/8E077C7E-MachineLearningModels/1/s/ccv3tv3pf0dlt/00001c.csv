@@ -1,0 +1,5 @@
+"0","Model_Accuracy = reg_stats %>%"
+"0","  rbind(rf_stats) %>%"
+"0","  rbind(xgb_stats)"
+"0",""
+"0","Model_Accuracy"
