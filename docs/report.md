@@ -1,12 +1,15 @@
 ## 1. Title and Author
 
-- Forecasting DC Pavement Condition Using HPMS Data
-- Prepared for UMBC Data Science Master Degree Capstone by Dr Chaojie (Jay) Wang
-- Connor Bruce
-- [Project GitHub](https://github.com/ConnorBruce/UMBC-DATA606-Capstone) 
-- [LinkedIn](https://www.linkedin.com/in/connormbruce/) 
-- Link to your PowerPoint presentation file
-- Link to your YouTube video 
+|||
+|---|---|
+|**Title**| Forecasting DC Pavement Condition Using HPMS Data|
+|**Author**|Connor Bruce|
+|**Prepared For**|UMBC Data Science Master Degree Capstone by Dr Chaojie (Jay) Wang|
+|**Semester**|Fall 2026|
+|**GitHub Repo**|[Project GitHub](https://github.com/ConnorBruce/UMBC-DATA606-Capstone)|
+|**LinkedIn**|[Connor Bruce LinkedIn Profile](https://www.linkedin.com/in/connormbruce/) |
+|**Presentations**|[Proposal](https://github.com/ConnorBruce/UMBC-DATA606-Capstone/blob/main/docs/DS_Capstone_EDA_Presentation_Connor_Bruce.pptx) - [EDA](https://github.com/ConnorBruce/UMBC-DATA606-Capstone/blob/main/docs/DS_Capstone_EDA_Presentation_Connor_Bruce.pptx) - [Final]()|
+|**YouTube Presentation**|[Project Presentation Video]()|
     
 ## 2. Background
 

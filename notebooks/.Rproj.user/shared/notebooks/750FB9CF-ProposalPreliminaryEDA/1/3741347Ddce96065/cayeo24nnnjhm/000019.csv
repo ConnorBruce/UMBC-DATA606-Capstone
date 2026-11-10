@@ -1,0 +1,14 @@
+"0","All_Condition_Data_Deltas %>%
+  filter(IRI_Delta <= 150, IRI_Delta >=-20) %>%
+  filter(YEAR_RECORD != 2015) %>%
+  arrange(YEAR_RECORD) %>%
+  mutate(Year = factor(YEAR_RECORD,
+                          levels = c(2016,2017,2018,2019,2020,2021,2022,2023,2024))) %>%
+  group_by(Year) %>%
+  summarize(Mean_IRI_Delta = mean(IRI_Delta,na.rm = T)) %>%
+  ggplot() +
+  geom_histogram(aes(x = Year,y = Mean_IRI_Delta),stat = ""identity"") +
+  theme_bw() +
+  ggtitle(""Mean DC IRI Delta By Year"")
+"
+"2","Warning: [38;5;250mIgnoring unknown parameters: `binwidth`, `bins`, and `pad`[39m"
