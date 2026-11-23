@@ -189,8 +189,10 @@ Does not change pattern much
 ```{r}
 All_Condition_Data_Deltas %>%
   filter(IRI <= 500) %>%
-  mutate(Year = as.factor(YEAR_RECORD)) %>%
+  mutate(Year = factor(YEAR_RECORD,
+                       levels = c(2016,2017,2018,2019,2020,2021,2022,2023,2024))) %>%
   group_by(Year) %>%
+  arrange(Year) %>%
   summarize(Mean_IRI = mean(IRI,na.rm = T)) %>%
   ggplot() +
   geom_histogram(aes(x = Year,y = Mean_IRI),stat = "identity") +

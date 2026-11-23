@@ -8,7 +8,7 @@
 |**Semester**|Fall 2026|
 |**GitHub Repo**|[Project GitHub](https://github.com/ConnorBruce/UMBC-DATA606-Capstone)|
 |**LinkedIn**|[Connor Bruce LinkedIn Profile](https://www.linkedin.com/in/connormbruce/) |
-|**Presentations**|[Proposal](https://github.com/ConnorBruce/UMBC-DATA606-Capstone/blob/main/docs/DS_Capstone_EDA_Presentation_Connor_Bruce.pptx) - [EDA](https://github.com/ConnorBruce/UMBC-DATA606-Capstone/blob/main/docs/DS_Capstone_EDA_Presentation_Connor_Bruce.pptx) - [Final]()|
+|**Presentations**|[Proposal](https://github.com/ConnorBruce/UMBC-DATA606-Capstone/blob/main/docs/DS_Capstone_Proposal_Presentation_Connor_Bruce.pptx) - [EDA](https://github.com/ConnorBruce/UMBC-DATA606-Capstone/blob/main/docs/DS_Capstone_EDA_Presentation_Connor_Bruce.pptx) - [Final](https://github.com/ConnorBruce/UMBC-DATA606-Capstone/blob/main/docs/DS_Capstone_Final_Presentation_Connor_Bruce.pptx)|
 |**YouTube Presentation**|[Project Presentation Video]()|
     
 ## 2. Background
