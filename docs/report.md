@@ -9,7 +9,7 @@
 |**GitHub Repo**|[Project GitHub](https://github.com/ConnorBruce/UMBC-DATA606-Capstone)|
 |**LinkedIn**|[Connor Bruce LinkedIn Profile](https://www.linkedin.com/in/connormbruce/) |
 |**Presentations**|[Proposal](https://github.com/ConnorBruce/UMBC-DATA606-Capstone/blob/main/docs/DS_Capstone_Proposal_Presentation_Connor_Bruce.pptx) - [EDA](https://github.com/ConnorBruce/UMBC-DATA606-Capstone/blob/main/docs/DS_Capstone_EDA_Presentation_Connor_Bruce.pptx) - [Final](https://github.com/ConnorBruce/UMBC-DATA606-Capstone/blob/main/docs/DS_Capstone_Final_Presentation_Connor_Bruce.pptx)|
-|**YouTube Presentation**|[Project Presentation Video]()|
+|**YouTube Presentation**|[Project Presentation Video](https://www.youtube.com/watch?v=EU6t4Wa5AzM)|
     
 ## 2. Background
 
@@ -89,7 +89,7 @@ The distribution of surface type was also explored and it was discovered that th
 ![Surface Type Distribution](Surface_Type_Ct.png)
 
 ### Correlation Analysis
-A correlation matrix was developed to get an idea of any cross-correlation within the dataset. The results are shown in the following figure. The highest correlation was expectedly between the IRI and its delta as well as the AADT and its delta. There are slight correlations between the IH and NHS due to the fact that a pavement on the IH is also on the NHS. A surprising discovery is that there is a negative correlation between the condition of the pavement and the traffic load of the pavement. This does not necessarily mean that traffic improves pavemetn condition, but instead that pavements that have high traffic likely recieve more funding and better care than the lesser used roads.
+A correlation matrix was developed to get an idea of any cross-correlation within the dataset. The results are shown in the following figure. The highest correlation was expectedly between the IRI and its delta as well as the AADT and its delta. There are slight correlations between the IH and NHS due to the fact that a pavement on the IH is also on the NHS. IRI has a negative correlation with both NHS and F_SYSTEM meaning that roads that are on the IH, NHS, or both typically have better condition (i.e. lower IRI). This is expected as those roads recieve additional funding and attention. Interestingly, the IRI delta does not follow this trend meaning that the pavements on the NHS or IH deteriorate at a similar rate to those that are not on the NHS or IH. A surprising discovery is that there is a negative correlation between the condition of the pavement and the traffic load of the pavement. This does not necessarily mean that traffic improves pavemetn condition, but instead that pavements that have high traffic likely recieve more funding and better care than the lesser used roads.
 
 ![Correlation Matrix](Correlation_Analysis.png)
 
@@ -116,7 +116,7 @@ The following table shows the results for each model:
 |Random Forest|36.92|0.301|29.03|
 |XGBoost|37.69|0.265|28.89|
 
-Based on these results, it was determined that the random forest model would be the model to be used in the application.Testing was done to find suitable parameters such that the model potential was optimized. Ultimately, the r-squared values of the models were lower than desired, however, there is a lot of variability in pavement condition and the age of the pavement is not available despite having a large effect on the condition. Therefore, the decision was made to use the best available model with the knowledge that the model may not have perfect prediction but instead provide a general trend of the data, which is typically the goal of pavement analyses. 
+Based on these results, it was determined that the random forest model would be the model to be used in the application. Testing was done to find suitable parameters such that the model potential was optimized and the testing resulted in the use of 50 trees as it provided a relatively high accuracy without reaching extremely long computation times. Ultimately, the r-squared values of the models were lower than desired, however, there is a lot of variability in pavement condition and the age of the pavement is not available despite having a large effect on the condition. Therefore, the decision was made to use the best available model with the knowledge that the model may not have perfect prediction but instead provide a general trend of the data, which is typically the goal of pavement analyses. 
 
 ## 6. Application of the Trained Models
 
